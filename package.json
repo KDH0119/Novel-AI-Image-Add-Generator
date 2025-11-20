@@ -1,0 +1,25 @@
+{
+  "name": "novelai-artist-batch-generator",
+  "version": "1.0.0",
+  "description": "1400개 이미지에서 아티스트 태그 추출 후 NovelAI로 대량 생성",
+  "main": "proxy-server.js",
+  "scripts": {
+    "start": "node proxy-server.js",
+    "dev": "nodemon proxy-server.js"
+  },
+  "keywords": [
+    "novelai",
+    "batch",
+    "artist",
+    "image-generation"
+  ],
+  "author": "김동환",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
