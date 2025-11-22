@@ -76,6 +76,8 @@ app.post('/api/novelai/generate-image', async (req, res) => {
 // ==========================================
 // Gemini Chat 프록시 (옵션 적용됨)
 // ==========================================
+// proxy-server.js 의 "/api/gemini/chat" 라우트 전체 수정
+
 app.post('/api/gemini/chat', async (req, res) => {
     try {
         const { apiKey, message, image, history, model } = req.body;
@@ -97,22 +99,20 @@ app.post('/api/gemini/chat', async (req, res) => {
         const contents = history ? [...history] : [];
         contents.push({ role: 'user', parts: parts });
 
-        // [수정] 요청하신 옵션 적용 (Safety, Generation Config, Thinking Config)
         const requestPayload = {
             contents: contents,
-            // 1. 세이프티 설정 (모두 차단 해제 - BLOCK_NONE)
             safetySettings: [
                 { category: "HARM_CATEGORY_HARASSMENT", threshold: "OFF" },
                 { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "OFF" },
                 { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "OFF" },
                 { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "OFF" }
             ],
-            // 2. 생성 설정 (Temperature, TopK, TopP)
             generationConfig: {
                 temperature: 0.8,
                 topK: 40,
                 topP: 0.95,
-                // 3. Thinking Config (thinkingBudget: 5000 -> thinkingLevel: "high")
+                // ★★★ 핵심 수정: 무조건 JSON 형식으로 뱉게 강제함 ★★★
+                responseMimeType: "application/json", 
                 thinkingConfig: {
                     thinkingLevel: "high",
                 }
@@ -132,7 +132,7 @@ app.post('/api/gemini/chat', async (req, res) => {
             return res.status(response.status).json({ error: data.error?.message || 'Gemini API Error' });
         }
 
-        const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || "(No response text)";
+        const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
         
         res.json({ 
             reply: replyText,
