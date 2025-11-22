@@ -276,13 +276,22 @@ body, html {
 }
 
 /* Preview Panel */
+/* batch-generator.css */
+
+/* 기존 .preview-header를 찾아서 이렇게 덮어씌우세요 */
 .preview-header {
     padding: 16px;
     border-bottom: 1px solid var(--border-color);
     display: flex;
-    justify-content: space-between;
+    justify-content: space-between; /* 좌측 그룹과 우측 그룹을 양 끝으로 배치 */
     align-items: center;
     background: #fff;
+    gap: 16px; /* 그룹 간 최소 간격 */
+}
+
+/* 슬라이더(바) 스타일 좀 더 예쁘게 */
+input[type=range] {
+    accent-color: var(--accent-color); /* 검은색 테마 적용 */
 }
 
 .mode-switcher {
