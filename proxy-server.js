@@ -76,12 +76,13 @@ app.post('/api/novelai/generate-image', async (req, res) => {
 // ==========================================
 // Gemini Chat 프록시 (옵션 적용됨)
 // ==========================================
-// proxy-server.js 의 "/api/gemini/chat" 라우트 전체 수정
-
 app.post('/api/gemini/chat', async (req, res) => {
     try {
         const { apiKey, message, image, history, model } = req.body;
         const targetModel = model || 'gemini-3-pro-preview'; 
+
+        // base64는 찍지 않고 길이/유무만 로그
+        console.log('[Gemini Chat] payload', { hasImage: !!image, imageLength: image ? image.length : 0, model: targetModel, historyCount: Array.isArray(history) ? history.length : 0, messagePreview: (message || '').slice(0, 180) });
 
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`;
 
@@ -99,20 +100,22 @@ app.post('/api/gemini/chat', async (req, res) => {
         const contents = history ? [...history] : [];
         contents.push({ role: 'user', parts: parts });
 
+        // [수정] 요청하신 옵션 적용 (Safety, Generation Config, Thinking Config)
         const requestPayload = {
             contents: contents,
+            // 1. 세이프티 설정 (모두 차단 해제 - BLOCK_NONE)
             safetySettings: [
                 { category: "HARM_CATEGORY_HARASSMENT", threshold: "OFF" },
                 { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "OFF" },
                 { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "OFF" },
                 { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "OFF" }
             ],
+            // 2. 생성 설정 (Temperature, TopK, TopP)
             generationConfig: {
                 temperature: 0.8,
                 topK: 40,
                 topP: 0.95,
-                // ★★★ 핵심 수정: 무조건 JSON 형식으로 뱉게 강제함 ★★★
-                responseMimeType: "application/json", 
+                // 3. Thinking Config (thinkingBudget: 5000 -> thinkingLevel: "high")
                 thinkingConfig: {
                     thinkingLevel: "high",
                 }
@@ -132,7 +135,7 @@ app.post('/api/gemini/chat', async (req, res) => {
             return res.status(response.status).json({ error: data.error?.message || 'Gemini API Error' });
         }
 
-        const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+        const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || "(No response text)";
         
         res.json({ 
             reply: replyText,
@@ -165,19 +168,24 @@ app.post('/api/gemini/chat', async (req, res) => {
 // ==========================================
 app.post('/api/gemini/image', async (req, res) => {
     try {
-        const { apiKey, prompt, image, aspectRatio, model } = req.body;
+        const { apiKey, prompt, image, images, aspectRatio, width, height, model } = req.body;
         
         // 님이 원하시는 Gemini 3.0 모델
         const targetModel = 'gemini-3-pro-image-preview'; 
 
         console.log(`\n[Request Start] Model: ${targetModel}`);
         console.log(`- Prompt: ${prompt}`);
-        console.log(`- Image Attached: ${!!image ? 'YES' : 'NO'}`);
+        const multiCount = Array.isArray(images) ? images.length : 0;
+        console.log(`- Image Attached: ${!!image ? 'YES' : 'NO'} (len=${image ? image.length : 0})`);
+        if (multiCount > 0) console.log(`- Multi Images: ${multiCount}개`);
+        console.log(`- AspectRatio: ${aspectRatio || 'default'} width:${width||'-'} height:${height||'-'}`);
 
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`;
         
         const parts = [];
-        if (image) {
+        if (Array.isArray(images) && images.length) {
+            images.forEach(img => parts.push({ inline_data: { mime_type: "image/png", data: img } }));
+        } else if (image) {
             parts.push({ inline_data: { mime_type: "image/png", data: image } });
         }
         
@@ -186,11 +194,18 @@ app.post('/api/gemini/image', async (req, res) => {
         const refinedPrompt = prompt + "\n(Perform a high-quality image editing based on this instruction. Output the result as an IMAGE.)";
         parts.push({ text: refinedPrompt });
 
+        const imageConfig = {};
+        if (width && height) {
+            imageConfig.responseImageDimensions = { width: Number(width), height: Number(height) };
+        } else if (aspectRatio) {
+            imageConfig.responseImageAspectRatio = aspectRatio;
+        }
+
         const requestPayload = {
             contents: [{ parts: parts }],
             generationConfig: {
-                // [핵심 수정] AI가 질문하거나 거절할 수 있도록 TEXT도 허용합니다.
                 responseModalities: ["TEXT", "IMAGE"], 
+                ...(Object.keys(imageConfig).length ? { responseImageConfig: imageConfig } : {})
             },
             safetySettings: [
                 { category: "HARM_CATEGORY_HARASSMENT", threshold: "OFF" },
@@ -233,9 +248,11 @@ app.post('/api/gemini/image', async (req, res) => {
         let targetImage = null;
         let textMessage = "";
 
+        // Google 응답은 camelCase(`inlineData`)로 내려오므로 두 케이스 모두 허용
         for (const part of responseParts) {
-            if (part.inline_data && part.inline_data.data) {
-                targetImage = part.inline_data.data;
+            const inlineData = part.inlineData || part.inline_data;
+            if (inlineData && inlineData.data) {
+                targetImage = inlineData.data;
             } else if (part.text) {
                 textMessage += part.text + " ";
             } else {
