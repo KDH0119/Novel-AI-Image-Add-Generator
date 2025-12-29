@@ -168,7 +168,7 @@ app.post('/api/gemini/chat', async (req, res) => {
 // ==========================================
 app.post('/api/gemini/image', async (req, res) => {
     try {
-        const { apiKey, prompt, image, images, aspectRatio, width, height, model } = req.body;
+        const { apiKey, prompt, image, images, aspectRatio, model } = req.body;
         
         // 님이 원하시는 Gemini 3.0 모델
         const targetModel = 'gemini-3-pro-image-preview'; 
@@ -178,7 +178,7 @@ app.post('/api/gemini/image', async (req, res) => {
         const multiCount = Array.isArray(images) ? images.length : 0;
         console.log(`- Image Attached: ${!!image ? 'YES' : 'NO'} (len=${image ? image.length : 0})`);
         if (multiCount > 0) console.log(`- Multi Images: ${multiCount}개`);
-        console.log(`- AspectRatio: ${aspectRatio || 'default'} width:${width||'-'} height:${height||'-'}`);
+        console.log(`- AspectRatio: ${aspectRatio || 'default'}`);
 
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`;
         
@@ -194,18 +194,11 @@ app.post('/api/gemini/image', async (req, res) => {
         const refinedPrompt = prompt + "\n(Perform a high-quality image editing based on this instruction. Output the result as an IMAGE.)";
         parts.push({ text: refinedPrompt });
 
-        const imageConfig = {};
-        if (width && height) {
-            imageConfig.responseImageDimensions = { width: Number(width), height: Number(height) };
-        } else if (aspectRatio) {
-            imageConfig.responseImageAspectRatio = aspectRatio;
-        }
-
         const requestPayload = {
             contents: [{ parts: parts }],
             generationConfig: {
                 responseModalities: ["TEXT", "IMAGE"], 
-                ...(Object.keys(imageConfig).length ? { responseImageConfig: imageConfig } : {})
+                ...(aspectRatio ? { responseImageAspectRatio: aspectRatio } : {})
             },
             safetySettings: [
                 { category: "HARM_CATEGORY_HARASSMENT", threshold: "OFF" },
