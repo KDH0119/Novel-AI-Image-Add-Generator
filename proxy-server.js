@@ -168,7 +168,7 @@ app.post('/api/gemini/chat', async (req, res) => {
 // ==========================================
 app.post('/api/gemini/image', async (req, res) => {
     try {
-        const { apiKey, prompt, image, images, aspectRatio, model } = req.body;
+        const { apiKey, prompt, image, images, model } = req.body;
         
         // 님이 원하시는 Gemini 3.0 모델
         const targetModel = 'gemini-3-pro-image-preview'; 
@@ -178,7 +178,7 @@ app.post('/api/gemini/image', async (req, res) => {
         const multiCount = Array.isArray(images) ? images.length : 0;
         console.log(`- Image Attached: ${!!image ? 'YES' : 'NO'} (len=${image ? image.length : 0})`);
         if (multiCount > 0) console.log(`- Multi Images: ${multiCount}개`);
-        console.log(`- AspectRatio: ${aspectRatio || 'default'}`);
+        console.log(`- AspectRatio: default`);
 
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`;
         
@@ -197,8 +197,7 @@ app.post('/api/gemini/image', async (req, res) => {
         const requestPayload = {
             contents: [{ parts: parts }],
             generationConfig: {
-                responseModalities: ["TEXT", "IMAGE"], 
-                ...(aspectRatio ? { responseImageAspectRatio: aspectRatio } : {})
+                responseModalities: ["TEXT", "IMAGE"]
             },
             safetySettings: [
                 { category: "HARM_CATEGORY_HARASSMENT", threshold: "OFF" },
